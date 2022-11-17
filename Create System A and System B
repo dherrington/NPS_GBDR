@@ -1,0 +1,47 @@
+//CREATE EXAMPLE SYSTEM MODEL A
+MERGE (a:Asset {name:'accumulator'})
+MERGE (ee:Asset {name:'electrical energy'})-[:PRODUCED_BY {GBDR_level:"SMDL"}]->(a)
+MERGE (w:Asset {name:'wire'})-[:CONNECTED_TO {GBDR_level:"SMDL"}]->(a)
+MERGE (ee)-[:TRANSFERRED_BY {GBDR_level:"SMDL"}]->(w)
+MERGE (m:Asset {name:'motor',maximumRPM:22500})<-[:CONNECTED_TO {GBDR_level:"SMDL"}]-(w)
+MERGE (ee)-[:CONSUMED_BY {GBDR_level:"SMDL"}]->(m)
+MERGE (h:Asset {name:'heat'})-[:PRODUCED_BY {GBDR_level:"SMDL"}]->(m)
+MERGE (t:Asset {name:'torque'})-[:PRODUCED_BY {GBDR_level:"SMDL"}]->(m)
+MERGE (d:Asset {name:'differential'})<-[:TRANSFORMED_BY {GBDR_level:"SMDL"}]->(t)
+MERGE (r:Asset {name:'rotor'})<-[:CONSUMED_BY {GBDR_level:"SMDL"}]-(t)
+MERGE (m)-[:CONNECTED_TO {GBDR_level:"SMDL"}]->(d)
+MERGE (d)-[:CONNECTED_TO {GBDR_level:"SMDL"}]->(r)
+MERGE (lift:Asset {name:'lift'})-[:PRODUCED_BY {GBDR_level:"SMDL"}]->(r);
+MERGE (SMA:System_Model {name:'systemA'})
+WITH SMA
+MATCH (assets:Asset) SET assets:systemA SET assets:SMDL
+MERGE (assets)-[:IS_CHILD_OF]->(SMA);
+
+//CREATE EXAMPLE SYSTEM MODEL B
+MERGE (a:Block {name:'battery'})
+MERGE (ee:Block {name:'electrical energy'})-[:PRODUCED_BY {GBDR_level:"SMDL"}]->(a)
+MERGE (w:Block {name:'wire'})-[:CONNECTED_TO {GBDR_level:"SMDL"}]->(a)
+MERGE (ee)-[:TRANSFERRED_BY {GBDR_level:"SMDL"}]->(w)
+MERGE (f:Block {name:'filament'})<-[:CONNECTED_TO {GBDR_level:"SMDL"}]-(w)
+MERGE (ee)-[:CONSUMED_BY {GBDR_level:"SMDL"}]->(f)
+MERGE (l:Block {name:'light'})-[:PRODUCED_BY {GBDR_level:"SMDL"}]->(f)
+MERGE (h:Block {name:'heat'})-[:PRODUCED_BY {GBDR_level:"SMDL"}]->(f);
+MERGE (SMB:System_Model {name:'systemB'})
+WITH SMB
+MATCH (blocks:Block)
+SET blocks:systemB SET blocks:SMDL
+MERGE (blocks)-[:IS_CHILD_OF]->(SMB);
+
+//SET EXAMPLE PROPERTIES
+MATCH (a:Block {name:"battery"})
+SET a.voltage = 1.5
+SET a.charge = 8000
+SET a.rechargeable = FALSE
+SET a.shape = 'cylinder'
+SET a.current_type = 'DC';
+
+MATCH (a:Asset {name:"accumulator"})
+SET a.Voltage = 11.3
+SET a.charge = 1600
+SET a.rechareable = TRUE
+SET a.current_type = 'DC';

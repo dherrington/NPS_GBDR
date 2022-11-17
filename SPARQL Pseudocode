@@ -1,0 +1,162 @@
+
+Pulling wiki-data in to the GBDR
+(System-Agnostic Knowledge for Synthetic Reasoning)
+
+1) For each node in the system, retrieve data from general knowledge source
+2) Send the node name to wikidata.  MERGE returned information into new nodes, with data (name, subject_Id: (WD:Q#######), schema:description)
+3) Create a link between the SMDL node and the equivalent node in SAKSR dataset
+4) Retrieve alternative names for the concept, and merge into SAKSR
+5) For primary name and alternative names, get hierarchy of subclassOf relationships (all above, 1 below)
+6) Merge those classes in, with relationships
+7) For primary name and alternative names, get property listing
+8) Merge properties in, connected to name and alternative names
+
+
+
+At the end of this, we have a general concept mapping for this node
+
+
+//Prep nodes:
+
+UNWIND ["battery", "accumulator", "electric motor", "explode", "track"] AS name
+MERGE (:Asset {name: name});
+
+1)
+
+Need to split the first part out from the rest: create the mapping synthetic node then work off of it.
+
+saidSameAsName P460
+
+
+SPARQL only:
+
+//Code below creates syntheticElements that match the name of each Asset node
+//For application to other node labels, only the first match operation needs to be changed
+MATCH (smdl_nodes:Asset)
+//Section below retrieves matching wikidata items based on rdfs:label
+//Returned items are added to the GBDR as a syntheticElement node (root synthetic node)
+//A relationship between the created between syntheticElement node and SMDL node
+WITH "SELECT ?subject ?subjectName ?subjectDescription WHERE { ?subject rdfs:label \"" +
+toLower(smdl_nodes.name) + "\"@en . ?subject schema:description ?subjectDescription filter(lang(?subjectDescription) = \"en\"). ?subject rdfs:label ?subjectName filter(lang(?subjectName) = \"en\").}" AS sparql, smdl_nodes
+CALL apoc.load.jsonParams(
+  "http://query.wikidata.org/sparql?query=" + sparql,
+  { Accept: "application/sparql-results+json"},
+  null) YIELD value
+WITH value, smdl_nodes
+CALL apoc.do.when(
+  size(value.results.bindings) > 0,
+  '
+  UNWIND value.results.bindings AS result
+  WITH result, smdl_nodes
+   MERGE (synEle:syntheticElement {name:result.subjectName.value, globalId:result.subject.value, description:result.subjectDescription.value})
+   MERGE (smdl_nodes)-[:SYNTHETIC_DEFINED_BY]->(synEle)
+   RETURN smdl_nodes',
+   'SET smdl_nodes.SYNTH_DATA_IMPORT = true RETURN smdl_nodes',
+  {value: value, smdl_nodes: smdl_nodes})
+YIELD value AS result
+WITH smdl_nodes
+//Query wikidata for the value of "said to be the same as" (P460) for root synthetic node
+MATCH (smdl_nodes)-[:SYNTHETIC_DEFINED_BY]->(synthEle)
+WITH DISTINCT synthEle as synthSet
+WITH "SELECT ?sameAsId ?sameAsName ?sameAsDescription WHERE { <" +
+synthSet.globalId + "> wdt:P460 ?sameAsId . ?sameAsId schema:description ?sameAsDescription filter(lang(?sameAsDescription) = \"en\").  ?sameAsId rdfs:label ?sameAsName filter(lang(?sameAsName) = \"en\").}" AS sparql, synthSet
+CALL apoc.load.jsonParams(
+  "http://query.wikidata.org/sparql?query=" + sparql,
+  { Accept: "application/sparql-results+json"},
+  null)
+YIELD value
+CALL apoc.do.when(
+  size(value.results.bindings) > 0,
+  '
+  UNWIND value.results.bindings AS result
+  WITH result, synthSet
+  MERGE (synEle:syntheticElement {name:result.sameAsName.value, globalId:result.sameAsId.value, description:result.sameAsDescription.value})
+  MERGE (synthSet)-[:SYNTHETIC_SAME_AS]-(synEle)
+  RETURN synthSet','SET synthSet.SYNTH_DATA_IMPORT = true RETURN synthSet',
+  {value: value, synthSet : synthSet})
+YIELD value AS result
+
+//Query wikidata for the value of "synonym" (P5973) for root synthetic node
+WITH synthSet
+WITH "SELECT ?synonymOfId ?synonymOfName ?synonymOfDescription WHERE { <" +
+synthSet.globalId + "> wdt:P5973 ?synonymOfId . ?synonymOfId schema:description ?synonymOfDescription filter(lang(?synonymOfDescription) = \"en\").  ?synonymOfId rdfs:label ?synonymOfName filter(lang(?synonymOfName) = \"en\").}" AS sparql, synthSet
+CALL apoc.load.jsonParams(
+  "http://query.wikidata.org/sparql?query=" + sparql,
+  { Accept: "application/sparql-results+json"},
+  null)
+YIELD value
+CALL apoc.do.when(
+  size(value.results.bindings) > 0,
+  '
+  UNWIND value.results.bindings AS result
+  WITH result, synthSet WHERE result is not null
+  MERGE (synEle:syntheticElement {name:result.synonymOfName.value, globalId:result.synonymOfId.value, description:result.synonymOfDescription.value})
+  MERGE (synthSet)-[:SYNTHETIC_SYNONYM_OF]-(synEle)
+  RETURN synthSet','SET synthSet.SYNTH_DATA_IMPORT = true RETURN synthSet',
+  {value: value, synthSet : synthSet})
+YIELD value AS result
+
+//Query wikidata for the value of "instance of" (P31) for root synthetic node
+WITH synthSet
+WITH "SELECT ?instanceOfId ?instanceOfName ?instanceOfDescription WHERE { <" +
+synthSet.globalId + "> wdt:P31 ?instanceOfId . ?instanceOfId schema:description ?instanceOfDescription filter(lang(?instanceOfDescription) = \"en\").  ?instanceOfId rdfs:label ?instanceOfName filter(lang(?instanceOfName) = \"en\").}" AS sparql, synthSet
+CALL apoc.load.jsonParams(
+  "http://query.wikidata.org/sparql?query=" + sparql,
+  { Accept: "application/sparql-results+json"},
+  null)
+YIELD value
+CALL apoc.do.when(
+  size(value.results.bindings) > 0,
+  '
+  UNWIND value.results.bindings AS result
+  WITH result, synthSet WHERE result is not null
+  MERGE (synEle:syntheticElement {name:result.instanceOfName.value, globalId:result.instanceOfId.value, description:result.instanceOfDescription.value})
+  MERGE (synthSet)-[:SYNTHETIC_INSTANCE_OF]-(synEle)
+  RETURN synthSet','SET synthSet.SYNTH_DATA_IMPORT = true RETURN synthSet',
+  {value: value, synthSet : synthSet})
+YIELD value AS result
+
+//Query wikidata for the value of "exact match" (P2888) for root synthetic node
+WITH synthSet
+WITH "SELECT ?exactMatchId ?exactMatchName ?exactMatchDescription WHERE { <" +
+synthSet.globalId + "> wdt:P31 ?exactMatchId . ?exactMatchId schema:description ?exactMatchDescription filter(lang(?exactMatchDescription) = \"en\").  ?exactMatchId rdfs:label ?exactMatchName filter(lang(?exactMatchName) = \"en\").}" AS sparql, synthSet
+CALL apoc.load.jsonParams(
+  "http://query.wikidata.org/sparql?query=" + sparql,
+  { Accept: "application/sparql-results+json"},
+  null)
+YIELD value
+CALL apoc.do.when(
+  size(value.results.bindings) > 0,
+  '
+  UNWIND value.results.bindings AS result
+  WITH result, synthSet WHERE result is not null
+  MERGE (synEle:syntheticElement {name:result.exactMatchName.value, globalId:result.exactMatchId.value, description:result.exactMatchDescription.value})
+  MERGE (synthSet)-[:SYNTHETIC_EXACT_MATCH]-(synEle)
+  RETURN synthSet','SET synthSet.SYNTH_DATA_IMPORT = true RETURN synthSet',
+  {value: value, synthSet : synthSet})
+YIELD value AS result
+
+//Query wikidata for the superclass of all existing syntheticElements connected
+//to the root synthetic node
+MATCH (smdl_nodes)-[:SYNTHETIC_DEFINED_BY]->()-[*0..1]->(synthEle)
+WITH DISTINCT synthEle as synthSet
+WITH "SELECT ?superClassId ?superClassName ?superClassDescription WHERE { <" +
+synthSet.globalId + "> wdt:P279 ?superClassId . ?superClassId schema:description ?superClassDescription filter(lang(?superClassDescription) = \"en\").  ?superClassId rdfs:label ?superClassName filter(lang(?superClassName) = \"en\").}" AS sparql, synthSet
+CALL apoc.load.jsonParams(
+  "http://query.wikidata.org/sparql?query=" + sparql,
+  { Accept: "application/sparql-results+json"},
+  null)
+YIELD value
+
+CALL apoc.do.when(
+  size(value.results.bindings) > 0,
+  '
+  UNWIND value.results.bindings AS result
+  WITH result, synthSet WHERE result is not null
+  MERGE (synEle:syntheticElement {name:result.superClassName.value, globalId:result.superClassId.value, description:result.superClassDescription.value})
+  MERGE (synthSet)-[:SYNTHETIC_SUBCLASS_OF]-(synEle)
+  RETURN synthSet','SET synthSet.SYNTH_DATA_IMPORT = true RETURN synthSet',
+  {value: value, synthSet : synthSet})
+YIELD value AS result
+WITH synthSet
+RETURN synthSet

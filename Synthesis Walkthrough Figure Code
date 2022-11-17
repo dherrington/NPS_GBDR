@@ -1,0 +1,130 @@
+//CREATE LEFT SYSTEM
+MERGE (a:Asset {name:'battery'})
+MERGE (ee:Asset {name:'electrical energy'})-[:PRODUCED_BY]->(a)
+MERGE (w:Asset {name:'wire'})-[:CONNECTED_TO]->(a)
+MERGE (ee)-[:TRANSFERRED_BY]->(w)
+MERGE (f:Asset {name:'filament'})<-[:CONNECTED_TO]-(w)
+MERGE (ee)-[:CONSUMED_BY]->(f)
+MERGE (l:Asset {name:'light'})-[:PRODUCED_BY]->(f)
+MERGE (h:Asset {name:'heat'})-[:PRODUCED_BY]->(f);
+
+//CREATE RIGHT SYSTEM
+MERGE (a:Asset {name:'accumulator'})
+MERGE (ee:Asset {name:'electrical energy'})-[:PRODUCED_BY]->(a)
+MERGE (w:Asset {name:'wire'})-[:CONNECTED_TO]->(a)
+MERGE (ee)-[:TRANSFERRED_BY]->(w)
+MERGE (m:Asset {name:'motor',maximumRPM:22500})<-[:CONNECTED_TO]-(w)
+MERGE (ee)-[:CONSUMED_BY]->(m)
+MERGE (h:Asset {name:'heat'})-[:PRODUCED_BY]->(m)
+MERGE (t:Asset {name:'torque'})-[:PRODUCED_BY]->(m)
+MERGE (d:Asset {name:'differential'})<-[:TRANSFORMED_BY]->(t)
+MERGE (r:Asset {name:'rotor'})<-[:CONSUMED_BY]-(t)
+MERGE (m)-[:CONNECTED_TO]->(d)
+MERGE (d)-[:CONNECTED_TO]->(r)
+MERGE (lift:Asset {name:'lift'})-[:PRODUCED_BY]->(r);
+
+MATCH (a:Asset {name:'battery'})-[*0..]-(b)
+SET b:SYSTEM1;
+MATCH (a:Asset {name:'accumulator'})-[*0..]-(b)
+SET b:SYSTEM2;
+
+
+
+//SET EXAMPLE PROPERTIES
+MATCH (a:Asset {name:"battery"})
+SET a.voltage = 1.5
+SET a.charge = 8000
+SET a.rechargeable = FALSE
+SET a.shape = 'cylinder';
+
+MATCH (a:Asset {name:"accumulator"})
+SET a.Voltage = 11.3
+SET a.charge = 1600
+SET a.rechareable = TRUE;
+//Identify Potentially Equivalent Nodes
+MATCH p=(smA:System_Model)<-[:IS_CHILD_OF*1..]-(a)-[*0..5{Synthetic:'TRUE'}]-(b)-[:IS_CHILD_OF*1..]->(smB:System_Model)
+WHERE smA<>smB
+AND NOT a:syntheticElement
+AND NOT b:syntheticElement
+AND id(a)>id(b) //Avoids two pairs of (a,b) and (b,a)
+WITH DISTINCT a,b
+MERGE (a)-[:POTENTIAL_MATCH]-(b);
+
+//Node Similarity Algorithm
+
+//Calculate node similarity score as Jaccardian similarity of property keys
+//Retrieve all pairs of potentially matched nodes
+MATCH (nodeA)-[r:POTENTIAL_MATCH]->(nodeB)
+//Determine cardinality of property key intersection
+CALL{
+    WITH nodeA,nodeB
+    WITH nodeA as a, nodeB as b
+    WITH keys(a) AS a_prop_keys, keys(b) AS b_prop_keys
+    UNWIND a_prop_keys as a_list
+    UNWIND b_prop_keys as b_list
+    //Strip everything except alphanumeric characters and convert to lower case.
+    WITH apoc.text.clean(a_list) as clean_a, apoc.text.clean(b_list) as clean_b
+    //Determine if pairs are fuzzy match and calculate edit distance
+    WITH clean_a, clean_b, apoc.text.fuzzyMatch(clean_a,clean_b) as fuzzyMatch, apoc.text.levenshteinDistance(clean_a,clean_b) AS pair_lev_dist
+    //Count as intersect if a fuzzy match or edit distance < 2
+    WITH DISTINCT clean_a, (fuzzyMatch=true OR pair_lev_dist<2) AS prop_match WHERE prop_match=TRUE
+    RETURN count(prop_match) AS intersectCount }
+
+//Determine cardinality of the union of properties
+WITH r,intersectCount, (size(keys(nodeA)) + size(keys(nodeB)) - intersectCount) as unionCount
+//Calculate Jaccardian similarity and set POSSIBLE_MATCH rel property accordingly
+//Intersect and union counts reduced by one to account for .name property
+//Using *10^3 in numerator and denominator changes the default calculation from integer to float
+WITH r, ((intersectCount-1)*10^3)/((unionCount-1)*10^3) AS jaccardSimilarity
+SET r.nodeSimilarity = jaccardSimilarity;
+
+
+
+//Calculate Context Similarity Score
+MATCH (nodeA)-[r:POTENTIAL_MATCH]->(nodeB)
+//Get combined count of neighbors.  Last number in relationship length determines neighborhood radius
+CALL{
+    WITH nodeA, nodeB
+    WITH nodeA as a, nodeB as b
+    OPTIONAL MATCH (a)-[*1..2{GBDR_level:"SMDL"}]-(aNeighbors)
+    WITH (b),count(DISTINCT aNeighbors) AS aNeighbors
+    OPTIONAL MATCH (b)-[*1..2{GBDR_level:"SMDL"}]-(bNeighbors)
+    WITH aNeighbors, count(DISTINCT bNeighbors) as bNeighbors
+    RETURN (aNeighbors + bNeighbors) AS neighbor_count
+}
+
+//Get count of neighbors with a match in the other system
+CALL{
+    WITH nodeA, nodeB
+    WITH nodeA as a, nodeB as b
+    OPTIONAL MATCH (a)-[*1..2{GBDR_level:"SMDL"}]-(aNeighbors)
+    OPTIONAL MATCH (b)-[*1..2{GBDR_level:"SMDL"}]-(bNeighbors)
+    MATCH(aNeighbors)-[:POTENTIAL_MATCH]-(bNeighbors) WHERE aNeighbors <> a AND bNeighbors <> b
+    RETURN count(DISTINCT aNeighbors) + count(DISTINCT bNeighbors) AS match_count
+}
+
+//Calculate cumulative value for binomial distribution n = neighbor count, k = match count
+//p is a tuning parameter that can be used to adjust context scores to reflect consistency
+//of language across all system models, and coverage of the semantic framework
+
+CALL
+{
+    WITH neighbor_count, match_count
+    WITH neighbor_count as n, match_count as k
+
+    //Calculating Binomial CDF in Cypher
+    MERGE (binom:GBDR_TEMP {k:k,n:n,p:.5}) //k,n,p params
+    WITH binom
+    SET binom.value = (1-binom.p)^(binom.n)
+    SET binom.coeff_value=1
+    FOREACH(i IN range(1,binom.k) |
+        SET binom.coeff_value=1
+        FOREACH(j IN range(1,i) |
+            SET binom.coeff_value = binom.coeff_value * ((binom.n + 1 - j)/j))
+        SET binom.value = binom.value + binom.coeff_value * binom.p^i * (1-binom.p)^(binom.n-i)
+    )
+    WITH binom, binom.value AS a
+    DELETE binom
+    RETURN a AS cdf_value
+}
+SET r.contextSimilarity = cdf_value;

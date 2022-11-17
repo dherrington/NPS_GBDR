@@ -1,0 +1,65 @@
+//CHAPTER 4 Queries
+
+//UAV structure - class and property subgraph
+MATCH p=(diag:Package:SUBGRAPH_RESULT{name:'UAV'})<-[]-(element1:Class)
+OPTIONAL MATCH r=(element1)-[links]->(element2:Class)-[]->(diag)
+OPTIONAL MATCH q =(element3)-[rels]->(element1)
+WHERE (NOT type(rels)='IS_CHILD_OF' AND element3:Class) OR (element3:Property AND element3.visibility ='public')
+RETURN r,q;
+
+
+//UAV activities
+MATCH p=(a:Activity:SUBGRAPH_RESULT)-[]-(b:Activity:SUBGRAPH_RESULT)
+WITH collect(p) as activities
+RETURN activities;
+
+
+
+//Combine activities and structure
+MATCH p=(a:Activity:SUBGRAPH_RESULT)-[]->(b:Activity:SUBGRAPH_RESULT)
+OPTIONAL MATCH r=(a)-[:DEPENDS_ON]->(c)
+WITH collect(p) as activities, collect(r) as dependencies
+MATCH p=(diag:Package:SUBGRAPH_RESULT{name:'UAV'})<-[]-(element1:Class)
+OPTIONAL MATCH q=(element1)-[*0..1]->(element2:Class)-[]->(diag)
+OPTIONAL MATCH r=(element3)-[rels]->(element1) WHERE (NOT type(rels)='IS_CHILD_OF' AND element3:Class) OR (element3:Property AND element3.visibility ='public')
+OPTIONAL MATCH s=(element3)-[:TYPE_OF*0..1]-(element4)
+WHERE (NOT type(rels)='IS_CHILD_OF' AND element3:Class) OR (element3:Property AND element3.visibility ='public')
+RETURN q,r,s, activities, dependencies;
+
+//UAV structure - class and property subgraph
+MATCH p=(diag:SUBGRAPH_RESULT{name:'Power Module'})<-[]-(element1:Class)
+OPTIONAL MATCH r=(element1)-[links]->(element2:Class)-[]->(diag)
+OPTIONAL MATCH q =(element3)-[rels]->(element1)
+WHERE (NOT type(rels)='IS_CHILD_OF' AND element3:Class) OR (element3:Property AND element3.visibility ='public')
+RETURN p,q,r;
+
+//Full UAV graph with 3 levels of syntheticElement connections
+MATCH p=(a:SYNTHESIS_FLAG)-[rels]->(b:SYNTHESIS_FLAG) WHERE NOT a:Property AND NOT b:Property AND rels.GBDR_level = 'SMDL'
+OPTIONAL MATCH q=(a)-[*1..3{Synthetic:'TRUE'}]->(c)
+RETURN p,q;
+
+//Use Case Diagram
+MATCH p=(a:SYNTHESIS_FLAG:Actor)-[rels]->(b:SYNTHESIS_FLAG:Actor)
+OPTIONAL MATCH q=(a)-[]->(c:SYNTHESIS_FLAG:UseCase)
+OPTIONAL MATCH r=(b)-[]->(d:SYNTHESIS_FLAG:UseCase)
+OPTIONAL MATCH s=(c)<-[]-(:SYNTHESIS_FLAG:UseCase{name:"Plan Mission"})
+OPTIONAL MATCH t=(d)<-[]-(:SYNTHESIS_FLAG:UseCase{name:"Plan Mission"})
+OPTIONAL MATCH u=(c)<-[]-(:SYNTHESIS_FLAG:Actor)
+OPTIONAL MATCH v=(d)<-[]-(:SYNTHESIS_FLAG:Actor)
+OPTIONAL MATCH w=({name:"Self Destruct"})-[:EXTENDS]-(:UseCase)
+RETURN p,q,r,s,t,u,v,w;
+
+
+
+
+//
+MATCH (a)
+SET a.BEFORE_FLAG_BOOL=true;
+MATCH (a)-[b]->(c)
+SET b.BEFORE_FLAG_BOOL=true;
+
+
+//Test code for checking import didn't break old one too badly
+MATCH (a) WHERE a.BEFORE_FLAG_BOOL=true
+OPTIONAL MATCH (a)-[b]->() WHERE b.BEFORE_FLAG_BOOL=true
+RETURN count(distinct a), count(distinct b)

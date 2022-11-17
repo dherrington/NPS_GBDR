@@ -1,0 +1,41 @@
+//Identify component set from SUAS_GRA
+//Set Label "SOURCE_COMPONENT"
+MATCH p=(uav:SUAS_GRA:SMDL{name:'UAV'})<-[:DECOMPOSES*1..]-(uav_children)
+WITH collect(p) AS uav_paths
+MATCH p2=(gcs:SUAS_GRA:SMDL{name:'GCS'})<-[:DECOMPOSES]-(gcs_children)
+WITH uav_paths, collect(p2) as gcs_paths
+WITH apoc.coll.union(uav_paths, gcs_paths) as combined_paths
+UNWIND combined_paths AS all_paths
+UNWIND nodes(all_paths) as relevant_nodes
+SET relevant_nodes:sourceComponent;
+
+//Identify component matches by name alignment
+MATCH (suas_comp:sourceComponent)
+OPTIONAL MATCH (target_comp:SMDL)-[:IS_CHILD_OF*1..]->(targetSys:System_Model)
+WHERE target_comp.name = suas_comp.name
+AND NOT target_comp:SUAS_GRA
+WITH suas_comp.name as suasName,targetSys.name as targetDetails
+WITH suasName, collect(targetDetails) AS matchdetails WHERE size(matchdetails) > 0
+RETURN suasName AS SUAS_Name, matchdetails AS Matched_component_source;
+
+//Identify potentially matching components using SAKL
+MATCH p=(suas_comp:sourceComponent)-[:POTENTIAL_MATCH]-(targetComp:SMDL)
+WITH DISTINCT suas_comp.name as suasName, targetComp.name as potComp
+WITH suasName, collect(potComp) as comp_list
+RETURN suasName AS SUAS_Name, comp_list as Potential_matches;
+
+//Identify potentially matching components using SAKL, only most similar
+MATCH p=(suas_comp:sourceComponent)-[rel1:POTENTIAL_MATCH]-(targetComp:SMDL)-[:IS_CHILD_OF*1..]->(targetSys:System_Model)
+WITH DISTINCT suas_comp.name as suasName, targetComp.name as potComp, rel1.nodeSimilarity + rel1.contextSimilarity as SimScore, targetSys.name as sysName ORDER BY SimScore DESC
+WITH suasName, collect(potComp) AS targetNameList, collect(sysName) as targetSysList
+WITH suasName, head(targetNameList) as targetName, head(targetSysList) as targetSys
+RETURN suasName AS SUAS_Name, targetName, targetSys;
+
+
+The ones above don't work great.  Can run through the search methods to find pieces that work?
+Need to demonstrate the following:
+1) Can identify appearances of information at different abstraction levels
+
+
+
+Starting here for what's in the dissertation:

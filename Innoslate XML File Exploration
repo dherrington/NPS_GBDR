@@ -1,0 +1,550 @@
+Checking contents:
+
+MATCH (a)-[n]->(b)
+WITH n, type(n) AS relType
+RETURN DISTINCT relType, count(relType)
+
+╒════════════╤════════════════╕
+│"relType"   │"count(relType)"│
+╞════════════╪════════════════╡
+│"source_of" │480             │ PASS
+├────────────┼────────────────┤
+│"target_of" │480             │ PASS
+├────────────┼────────────────┤
+│"defined_by"│102             │ PASS
+├────────────┼────────────────┤
+│"child_of"  │11              │ PASS
+├────────────┼────────────────┤
+│"Inverse_of"│88              │ PASS
+└────────────┴────────────────┘
+
+
+MATCH(n) UNWIND labels(n) AS labels RETURN DISTINCT labels, count(labels)
+
+╒══════════════╤═══════════════╕
+│"labels"      │"count(labels)"│
+╞══════════════╪═══════════════╡
+│"Ontology"    │1              │  PASS
+├──────────────┼───────────────┤
+│"Entity"      │26             │  PASS
+├──────────────┼───────────────┤
+│"Attribute"   │90             │  PASS
+├──────────────┼───────────────┤
+│"Relationship"│88             │  PASS
+└──────────────┴───────────────┘
+
+
+
+WITH "file:///moon_base.xml" as file_name
+CALL apoc.load.xml(file_name)
+YIELD value
+RETURN keys(value)
+
+
+╒════════════════════════════════════════════════════╕
+│"keys(value)"                                       │
+╞════════════════════════════════════════════════════╡
+│["_type","createdDateTime","xsdVersion","_children"]│ DONE
+└────────────────────────────────────────────────────┘
+
+
+WITH "file:///moon_base.xml" as file_name
+CALL apoc.load.xml(file_name)
+YIELD value
+UNWIND value._children AS tier1
+RETURN tier1._type, keys(tier1)
+
+╒═════════════════╤══════════════════════════════════╕
+│"tier1._type"    │"keys(tier1)"                     │
+╞═════════════════╪══════════════════════════════════╡
+│"schema"         │["_type","_children","lmlVersion"]│ <- need to do schema_properties (attribute nodes) on both relationships and entities
+├─────────────────┼──────────────────────────────────┤
+│"labels"         │["_type","_children"]             │ <- out of scope, this is just Innoslate optional organization.  Can come back to it if needed.  Needs further consideration.
+├─────────────────┼──────────────────────────────────┤
+│"database"       │["_type","_children"]             │
+├─────────────────┼──────────────────────────────────┤
+│"uniqueProjectId"│["_type","_text"]                 │ Done
+└─────────────────┴──────────────────────────────────┘
+
+
+WITH "file:///moon_base.xml" as file_name
+CALL apoc.load.xml(file_name)
+YIELD value
+UNWIND value._children AS tier1
+WITH tier1 as schema_outline WHERE tier1._type="schema"
+WITH schema_outline._children AS schema_outline2
+UNWIND schema_outline2 AS tier2
+RETURN DISTINCT tier2._type, keys(tier2)
+
+╒═══════════════════╤══════════════════════════╕
+│"tier2._type"      │"keys(tier2)"             │
+╞═══════════════════╪══════════════════════════╡
+│"schemaClass"      │["_type","_children","id"]│
+├───────────────────┼──────────────────────────┤
+│"schemaRelation"   │["_type","_children","id"]│
+├───────────────────┼──────────────────────────┤
+│"xmlTargetRelation"│["_type","_children"]     │
+└───────────────────┴──────────────────────────┘
+
+
+
+
+WITH "file:///moon_base.xml" as file_name
+CALL apoc.load.xml(file_name)
+YIELD value
+UNWIND value._children AS tier1
+WITH tier1 as schema_outline WHERE tier1._type="schema"
+WITH schema_outline._children AS schema_outline2
+UNWIND schema_outline2 AS tier2
+WITH tier2, tier2._children AS schema_outline3
+UNWIND schema_outline3 AS tier3
+
+RETURN DISTINCT tier2._type, keys(tier2), tier3._type, keys(tier3)
+
+╒═══════════════════╤══════════════════════════╤═══════════════════╤══════════════════════════╕
+│"tier2._type"      │"keys(tier2)"             │"tier3._type"      │"keys(tier3)"             │
+╞═══════════════════╪══════════════════════════╪═══════════════════╪══════════════════════════╡
+│"schemaClass"      │["_type","_children","id"]│"name"             │["_type","_text"]         │ DONE
+├───────────────────┼──────────────────────────┼───────────────────┼──────────────────────────┤
+│"schemaClass"      │["_type","_children","id"]│"description"      │["_type","_text"]         │ DONE
+├───────────────────┼──────────────────────────┼───────────────────┼──────────────────────────┤
+│"schemaClass"      │["_type","_children","id"]│"hidden"           │["_type","_text"]         │ DONE
+├───────────────────┼──────────────────────────┼───────────────────┼──────────────────────────┤
+│"schemaClass"      │["_type","_children","id"]│"locked"           │["_type","_text"]         │ DONE
+├───────────────────┼──────────────────────────┼───────────────────┼──────────────────────────┤
+│"schemaClass"      │["_type","_children","id"]│"abstract"         │["_type","_text"]         │ DONE
+├───────────────────┼──────────────────────────┼───────────────────┼──────────────────────────┤
+│"schemaClass"      │["_type","_children","id"]│"schemaProperty"   │["_type","_children","id"]│
+├───────────────────┼──────────────────────────┼───────────────────┼──────────────────────────┤
+│"schemaClass"      │["_type","_children","id"]│"parentId"         │["_type","_text"]         │ DONE
+├───────────────────┼──────────────────────────┼───────────────────┼──────────────────────────┤
+│"schemaRelation"   │["_type","_children","id"]│"name"             │["_type","_text"]         │ DONE
+├───────────────────┼──────────────────────────┼───────────────────┼──────────────────────────┤
+│"schemaRelation"   │["_type","_children","id"]│"description"      │["_type","_text"]         │ DONE
+├───────────────────┼──────────────────────────┼───────────────────┼──────────────────────────┤
+│"schemaRelation"   │["_type","_children","id"]│"hidden"           │["_type","_text"]         │ DONE
+├───────────────────┼──────────────────────────┼───────────────────┼──────────────────────────┤
+│"schemaRelation"   │["_type","_children","id"]│"locked"           │["_type","_text"]         │ DONE
+├───────────────────┼──────────────────────────┼───────────────────┼──────────────────────────┤
+│"schemaRelation"   │["_type","_children","id"]│"inverseRelationId"│["_type","_text"]         │ DONE
+├───────────────────┼──────────────────────────┼───────────────────┼──────────────────────────┤
+│"schemaRelation"   │["_type","_children","id"]│"schemaProperty"   │["_type","_children","id"]│
+├───────────────────┼──────────────────────────┼───────────────────┼──────────────────────────┤
+│"xmlTargetRelation"│["_type","_children"]     │"sourceId"         │["_type","_text"]         │ DONE
+├───────────────────┼──────────────────────────┼───────────────────┼──────────────────────────┤
+│"xmlTargetRelation"│["_type","_children"]     │"relationId"       │["_type","_text"]         │ DONE
+├───────────────────┼──────────────────────────┼───────────────────┼──────────────────────────┤
+│"xmlTargetRelation"│["_type","_children"]     │"targetId"         │["_type","_text"]         │ DONE
+├───────────────────┼──────────────────────────┼───────────────────┼──────────────────────────┤
+│"xmlTargetRelation"│["_type","_children"]     │"isHidden"         │["_type","_text"]         │ OUT OF SCOPE
+└───────────────────┴──────────────────────────┴───────────────────┴──────────────────────────┘
+
+
+
+WITH "file:///moon_base.xml" as file_name
+CALL apoc.load.xml(file_name)
+YIELD value
+UNWIND value._children AS tier1
+WITH tier1 as schema_outline WHERE tier1._type="schema"
+WITH schema_outline._children AS schema_outline2
+UNWIND schema_outline2 AS tier2
+WITH tier2, tier2._children AS schema_outline3
+UNWIND schema_outline3 AS tier3
+WITH tier2, tier3, tier3._children AS schema_outline4
+UNWIND schema_outline4 AS tier4
+WITH tier2, tier3, tier4, tier4._children AS schema_outline5
+UNWIND schema_outline5 AS tier5
+
+RETURN DISTINCT tier2._type, keys(tier2), tier3._type, keys(tier3), tier4._type, keys(tier4), tier5._type, keys(tier5)
+
+╒════════════════╤══════════════════════════╤════════════════╤══════════════════════════╤═════════════════╤════════════════════════════════════════╤═════════════╤═════════════════╕
+│"tier2._type"   │"keys(tier2)"             │"tier3._type"   │"keys(tier3)"             │"tier4._type"    │"keys(tier4)"                           │"tier5._type"│"keys(tier5)"    │
+╞════════════════╪══════════════════════════╪════════════════╪══════════════════════════╪═════════════════╪════════════════════════════════════════╪═════════════╪═════════════════╡
+│"schemaClass"   │["_type","_children","id"]│"schemaProperty"│["_type","_children","id"]│"stringAttribute"│["_type","_children","schemaPropertyId"]│"value"      │["_type","_text"]│
+├────────────────┼──────────────────────────┼────────────────┼──────────────────────────┼─────────────────┼────────────────────────────────────────┼─────────────┼─────────────────┤
+│"schemaClass"   │["_type","_children","id"]│"schemaProperty"│["_type","_children","id"]│"parameter"      │["_type","_children"]                   │"name"       │["_type","_text"]│
+├────────────────┼──────────────────────────┼────────────────┼──────────────────────────┼─────────────────┼────────────────────────────────────────┼─────────────┼─────────────────┤
+│"schemaClass"   │["_type","_children","id"]│"schemaProperty"│["_type","_children","id"]│"parameter"      │["_type","_children"]                   │"type"       │["_type","_text"]│
+├────────────────┼──────────────────────────┼────────────────┼──────────────────────────┼─────────────────┼────────────────────────────────────────┼─────────────┼─────────────────┤
+│"schemaClass"   │["_type","_children","id"]│"schemaProperty"│["_type","_children","id"]│"parameter"      │["_type","_children"]                   │"value"      │["_type","_text"]│
+├────────────────┼──────────────────────────┼────────────────┼──────────────────────────┼─────────────────┼────────────────────────────────────────┼─────────────┼─────────────────┤
+│"schemaRelation"│["_type","_children","id"]│"schemaProperty"│["_type","_children","id"]│"parameter"      │["_type","_children"]                   │"name"       │["_type","_text"]│
+├────────────────┼──────────────────────────┼────────────────┼──────────────────────────┼─────────────────┼────────────────────────────────────────┼─────────────┼─────────────────┤
+│"schemaRelation"│["_type","_children","id"]│"schemaProperty"│["_type","_children","id"]│"parameter"      │["_type","_children"]                   │"type"       │["_type","_text"]│
+├────────────────┼──────────────────────────┼────────────────┼──────────────────────────┼─────────────────┼────────────────────────────────────────┼─────────────┼─────────────────┤
+│"schemaRelation"│["_type","_children","id"]│"schemaProperty"│["_type","_children","id"]│"parameter"      │["_type","_children"]                   │"value"      │["_type","_text"]│
+└────────────────┴──────────────────────────┴────────────────┴──────────────────────────┴─────────────────┴────────────────────────────────────────┴─────────────┴─────────────────┘
+
+
+
+
+
+
+
+
+
+
+
+WITH "file:///moon_base.xml" as file_name
+CALL apoc.load.xml(file_name)
+YIELD value
+UNWIND value._children AS tier1
+WITH tier1, tier1._children AS schema_outline2
+UNWIND schema_outline2 AS tier2
+RETURN DISTINCT tier1._type, tier2._type, keys(tier2)
+
+╒═════════════╤═══════════════════╤══════════════════════════╕
+│"tier1._type"│"tier2._type"      │"keys(tier2)"             │
+╞═════════════╪═══════════════════╪══════════════════════════╡
+│"schema"     │"schemaClass"      │["_type","_children","id"]│
+├─────────────┼───────────────────┼──────────────────────────┤
+│"schema"     │"schemaRelation"   │["_type","_children","id"]│
+├─────────────┼───────────────────┼──────────────────────────┤
+│"schema"     │"xmlTargetRelation"│["_type","_children"]     │
+├─────────────┼───────────────────┼──────────────────────────┤
+│"labels"     │"label"            │["_type","_children","id"]│
+├─────────────┼───────────────────┼──────────────────────────┤
+│"database"   │"entity"           │["_type","_children","id"]│
+├─────────────┼───────────────────┼──────────────────────────┤
+│"database"   │"relationship"     │["_type","_children"]     │
+└─────────────┴───────────────────┴──────────────────────────┘
+
+
+
+WITH "file:///moon_base.xml" as file_name
+CALL apoc.load.xml(file_name)
+YIELD value
+UNWIND value._children AS tier1
+WITH tier1, tier1._children AS schema_outline2
+UNWIND schema_outline2 AS tier2
+WITH tier1, tier2, tier2._children AS schema_outline3
+UNWIND schema_outline3 AS tier3
+
+RETURN DISTINCT tier1._type, tier2._type, keys(tier2), tier3._type, keys(tier3)
+
+
+!!!!!!!!!!!!!!!!!!NEED TO ADD THE IDS!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!NEED TO ADD THE IDS!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!NEED TO ADD THE IDS!!!!!!!!!!!!!!!!!!!!!!!
+
+╒═════════════╤═══════════════════╤══════════════════════════╤═══════════════════╤════════════════════════════════════════╕
+│"tier1._type"│"tier2._type"      │"keys(tier2)"             │"tier3._type"      │"keys(tier3)"                           │
+╞═════════════╪═══════════════════╪══════════════════════════╪═══════════════════╪════════════════════════════════════════╡
+│"schema"     │"schemaClass"      │["_type","_children","id"]│"name"             │["_type","_text"]                       │
+├─────────────┼───────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┤
+│"schema"     │"schemaClass"      │["_type","_children","id"]│"description"      │["_type","_text"]                       │
+├─────────────┼───────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┤
+│"schema"     │"schemaClass"      │["_type","_children","id"]│"hidden"           │["_type","_text"]                       │
+├─────────────┼───────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┤
+│"schema"     │"schemaClass"      │["_type","_children","id"]│"locked"           │["_type","_text"]                       │
+├─────────────┼───────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┤
+│"schema"     │"schemaClass"      │["_type","_children","id"]│"abstract"         │["_type","_text"]                       │
+├─────────────┼───────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┤
+│"schema"     │"schemaClass"      │["_type","_children","id"]│"schemaProperty"   │["_type","_children","id"]              │
+├─────────────┼───────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┤
+│"schema"     │"schemaClass"      │["_type","_children","id"]│"parentId"         │["_type","_text"]                       │
+├─────────────┼───────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┤
+│"schema"     │"schemaRelation"   │["_type","_children","id"]│"name"             │["_type","_text"]                       │
+├─────────────┼───────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┤
+│"schema"     │"schemaRelation"   │["_type","_children","id"]│"description"      │["_type","_text"]                       │
+├─────────────┼───────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┤
+│"schema"     │"schemaRelation"   │["_type","_children","id"]│"hidden"           │["_type","_text"]                       │
+├─────────────┼───────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┤
+│"schema"     │"schemaRelation"   │["_type","_children","id"]│"locked"           │["_type","_text"]                       │
+├─────────────┼───────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┤
+│"schema"     │"schemaRelation"   │["_type","_children","id"]│"inverseRelationId"│["_type","_text"]                       │
+├─────────────┼───────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┤
+│"schema"     │"schemaRelation"   │["_type","_children","id"]│"schemaProperty"   │["_type","_children","id"]              │
+├─────────────┼───────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┤
+│"schema"     │"xmlTargetRelation"│["_type","_children"]     │"sourceId"         │["_type","_text"]                       │
+├─────────────┼───────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┤
+│"schema"     │"xmlTargetRelation"│["_type","_children"]     │"relationId"       │["_type","_text"]                       │
+├─────────────┼───────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┤
+│"schema"     │"xmlTargetRelation"│["_type","_children"]     │"targetId"         │["_type","_text"]                       │
+├─────────────┼───────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┤
+│"schema"     │"xmlTargetRelation"│["_type","_children"]     │"isHidden"         │["_type","_text"]                       │
+├─────────────┼───────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┤
+│"labels"     │"label"            │["_type","_children","id"]│"name"             │["_type","_text"]                       │
+├─────────────┼───────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┤
+│"labels"     │"label"            │["_type","_children","id"]│"hidden"           │["_type","_text"]                       │
+├─────────────┼───────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┤
+│"labels"     │"label"            │["_type","_children","id"]│"locked"           │["_type","_text"]                       │
+├─────────────┼───────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┤
+│"labels"     │"label"            │["_type","_children","id"]│"schemaClassId"    │["_type","_text"]                       │
+├─────────────┼───────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┤
+│"labels"     │"label"            │["_type","_children","id"]│"linkLabel"        │["_type","_text"]                       │
+├─────────────┼───────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┤
+│"labels"     │"label"            │["_type","_children","id"]│"description"      │["_type","_text"]                       │
+├─────────────┼───────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┤
+│"labels"     │"label"            │["_type","_children","id"]│"parentId"         │["_type","_text"]                       │
+├─────────────┼───────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┤
+│"database"   │"entity"           │["_type","_children","id"]│"name"             │["_type","_text"]                       │
+├─────────────┼───────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┤
+│"database"   │"entity"           │["_type","_children","id"]│"description"      │["_type","_text"]                       │
+├─────────────┼───────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┤
+│"database"   │"entity"           │["_type","_children","id"]│"schemaClassId"    │["_type","_text"]                       │
+├─────────────┼───────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┤
+│"database"   │"entity"           │["_type","_children","id"]│"number"           │["_type","_text"]                       │
+├─────────────┼───────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┤
+│"database"   │"entity"           │["_type","_children","id"]│"dateAttribute"    │["_type","_children","schemaPropertyId"]│
+├─────────────┼───────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┤
+│"database"   │"entity"           │["_type","_children","id"]│"labelId"          │["_type","_text"]                       │
+├─────────────┼───────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┤
+│"database"   │"entity"           │["_type","_children","id"]│"simulationData"   │["_type","_children"]                   │
+├─────────────┼───────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┤
+│"database"   │"entity"           │["_type","_children","id"]│"createdOn"        │["_type","_text"]                       │
+├─────────────┼───────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┤
+│"database"   │"entity"           │["_type","_children","id"]│"modifiedOn"       │["_type","_text"]                       │
+├─────────────┼───────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┤
+│"database"   │"entity"           │["_type","_children","id"]│"globalId"         │["_type","_text"]                       │
+├─────────────┼───────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┤
+│"database"   │"entity"           │["_type","_children","id"]│"doubleAttribute"  │["_type","_children","schemaPropertyId"]│
+├─────────────┼───────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┤
+│"database"   │"entity"           │["_type","_children","id"]│"durationAttribute"│["_type","_children","schemaPropertyId"]│
+├─────────────┼───────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┤
+│"database"   │"entity"           │["_type","_children","id"]│"numberAttribute"  │["_type","_children","schemaPropertyId"]│
+├─────────────┼───────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┤
+│"database"   │"entity"           │["_type","_children","id"]│"linkLabelId"      │["_type","_text"]                       │
+├─────────────┼───────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┤
+│"database"   │"entity"           │["_type","_children","id"]│"description"      │["_type"]                               │
+├─────────────┼───────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┤
+│"database"   │"entity"           │["_type","_children","id"]│"stringAttribute"  │["_type","_children","schemaPropertyId"]│
+├─────────────┼───────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┤
+│"database"   │"entity"           │["_type","_children","id"]│"name"             │["_type"]                               │
+├─────────────┼───────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┤
+│"database"   │"entity"           │["_type","_children","id"]│"qualityAttribute" │["_type","_children","schemaPropertyId"]│
+├─────────────┼───────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┤
+│"database"   │"entity"           │["_type","_children","id"]│"xmlDiagram"       │["_type","_children","type"]            │
+├─────────────┼───────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┤
+│"database"   │"entity"           │["_type","_children","id"]│"metadata"         │["_type","_children"]                   │
+├─────────────┼───────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┤
+│"database"   │"entity"           │["_type","_children","id"]│"number"           │["_type"]                               │
+├─────────────┼───────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┤
+│"database"   │"entity"           │["_type","_children","id"]│"imageId"          │["_type","_text"]                       │
+├─────────────┼───────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┤
+│"database"   │"relationship"     │["_type","_children"]     │"sourceId"         │["_type","_text"]                       │
+├─────────────┼───────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┤
+│"database"   │"relationship"     │["_type","_children"]     │"schemaRelationId" │["_type","_text"]                       │
+├─────────────┼───────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┤
+│"database"   │"relationship"     │["_type","_children"]     │"targetId"         │["_type","_text"]                       │
+├─────────────┼───────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┤
+│"database"   │"relationship"     │["_type","_children"]     │"booleanAttribute" │["_type","_children","schemaPropertyId"]│
+├─────────────┼───────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┤
+│"database"   │"relationship"     │["_type","_children"]     │"numberAttribute"  │["_type","_children","schemaPropertyId"]│
+└─────────────┴───────────────────┴──────────────────────────┴───────────────────┴────────────────────────────────────────┘
+
+
+
+
+
+WITH "file:///moon_base.xml" as file_name
+CALL apoc.load.xml(file_name)
+YIELD value
+UNWIND value._children AS tier1
+WITH tier1, tier1._children AS schema_outline2
+UNWIND schema_outline2 AS tier2
+WITH tier1, tier2, tier2._children AS schema_outline3
+UNWIND schema_outline3 AS tier3
+WITH tier1, tier2, tier3, tier3._children AS schema_outline4
+UNWIND schema_outline4 AS tier4
+WITH tier1, tier2, tier3, tier4, tier4._children AS schema_outline5
+UNWIND schema_outline5 AS tier5
+
+RETURN DISTINCT tier1._type, tier2._type, keys(tier2), tier3._type, keys(tier3), tier4._type, keys(tier4), tier5._type, keys(tier5)
+
+╒═════════════╤════════════════╤══════════════════════════╤═══════════════════╤════════════════════════════════════════╤══════════════════╤════════════════════════════════════════╤═══════════════════════╤══════════════════════════════════╕
+│"tier1._type"│"tier2._type"   │"keys(tier2)"             │"tier3._type"      │"keys(tier3)"                           │"tier4._type"     │"keys(tier4)"                           │"tier5._type"          │"keys(tier5)"                     │
+╞═════════════╪════════════════╪══════════════════════════╪═══════════════════╪════════════════════════════════════════╪══════════════════╪════════════════════════════════════════╪═══════════════════════╪══════════════════════════════════╡
+│"schema"     │"schemaClass"   │["_type","_children","id"]│"schemaProperty"   │["_type","_children","id"]              │"stringAttribute" │["_type","_children","schemaPropertyId"]│"value"                │["_type","_text"]                 │
+├─────────────┼────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┼──────────────────┼────────────────────────────────────────┼───────────────────────┼──────────────────────────────────┤
+│"schema"     │"schemaClass"   │["_type","_children","id"]│"schemaProperty"   │["_type","_children","id"]              │"parameter"       │["_type","_children"]                   │"name"                 │["_type","_text"]                 │
+├─────────────┼────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┼──────────────────┼────────────────────────────────────────┼───────────────────────┼──────────────────────────────────┤
+│"schema"     │"schemaClass"   │["_type","_children","id"]│"schemaProperty"   │["_type","_children","id"]              │"parameter"       │["_type","_children"]                   │"type"                 │["_type","_text"]                 │
+├─────────────┼────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┼──────────────────┼────────────────────────────────────────┼───────────────────────┼──────────────────────────────────┤
+│"schema"     │"schemaClass"   │["_type","_children","id"]│"schemaProperty"   │["_type","_children","id"]              │"parameter"       │["_type","_children"]                   │"value"                │["_type","_text"]                 │
+├─────────────┼────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┼──────────────────┼────────────────────────────────────────┼───────────────────────┼──────────────────────────────────┤
+│"schema"     │"schemaRelation"│["_type","_children","id"]│"schemaProperty"   │["_type","_children","id"]              │"parameter"       │["_type","_children"]                   │"name"                 │["_type","_text"]                 │
+├─────────────┼────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┼──────────────────┼────────────────────────────────────────┼───────────────────────┼──────────────────────────────────┤
+│"schema"     │"schemaRelation"│["_type","_children","id"]│"schemaProperty"   │["_type","_children","id"]              │"parameter"       │["_type","_children"]                   │"type"                 │["_type","_text"]                 │
+├─────────────┼────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┼──────────────────┼────────────────────────────────────────┼───────────────────────┼──────────────────────────────────┤
+│"schema"     │"schemaRelation"│["_type","_children","id"]│"schemaProperty"   │["_type","_children","id"]              │"parameter"       │["_type","_children"]                   │"value"                │["_type","_text"]                 │
+├─────────────┼────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┼──────────────────┼────────────────────────────────────────┼───────────────────────┼──────────────────────────────────┤
+│"database"   │"entity"        │["_type","_children","id"]│"simulationData"   │["_type","_children"]                   │"controlStructure"│["_type","_children","id"]              │"type"                 │["_type","_text"]                 │
+├─────────────┼────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┼──────────────────┼────────────────────────────────────────┼───────────────────────┼──────────────────────────────────┤
+│"database"   │"entity"        │["_type","_children","id"]│"simulationData"   │["_type","_children"]                   │"controlStructure"│["_type","_children","id"]              │"successorStructure"   │["_type","_children","id"]        │
+├─────────────┼────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┼──────────────────┼────────────────────────────────────────┼───────────────────────┼──────────────────────────────────┤
+│"database"   │"entity"        │["_type","_children","id"]│"durationAttribute"│["_type","_children","schemaPropertyId"]│"distribution"    │["_type","_children"]                   │"type"                 │["_type","_text"]                 │
+├─────────────┼────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┼──────────────────┼────────────────────────────────────────┼───────────────────────┼──────────────────────────────────┤
+│"database"   │"entity"        │["_type","_children","id"]│"durationAttribute"│["_type","_children","schemaPropertyId"]│"distribution"    │["_type","_children"]                   │"distributionParameter"│["_type","_children"]             │
+├─────────────┼────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┼──────────────────┼────────────────────────────────────────┼───────────────────────┼──────────────────────────────────┤
+│"database"   │"entity"        │["_type","_children","id"]│"simulationData"   │["_type","_children"]                   │"controlStructure"│["_type","_children","id"]              │"successorStructure"   │["_type","_children","id","group"]│
+├─────────────┼────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┼──────────────────┼────────────────────────────────────────┼───────────────────────┼──────────────────────────────────┤
+│"database"   │"entity"        │["_type","_children","id"]│"numberAttribute"  │["_type","_children","schemaPropertyId"]│"distribution"    │["_type","_children"]                   │"type"                 │["_type","_text"]                 │
+├─────────────┼────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┼──────────────────┼────────────────────────────────────────┼───────────────────────┼──────────────────────────────────┤
+│"database"   │"entity"        │["_type","_children","id"]│"numberAttribute"  │["_type","_children","schemaPropertyId"]│"distribution"    │["_type","_children"]                   │"distributionParameter"│["_type","_children"]             │
+├─────────────┼────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┼──────────────────┼────────────────────────────────────────┼───────────────────────┼──────────────────────────────────┤
+│"database"   │"entity"        │["_type","_children","id"]│"simulationData"   │["_type","_children"]                   │"entityBranch"    │["_type","_children","id"]              │"name"                 │["_type","_text"]                 │
+├─────────────┼────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┼──────────────────┼────────────────────────────────────────┼───────────────────────┼──────────────────────────────────┤
+│"database"   │"entity"        │["_type","_children","id"]│"simulationData"   │["_type","_children"]                   │"entityBranch"    │["_type","_children","id"]              │"order"                │["_type","_text"]                 │
+├─────────────┼────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┼──────────────────┼────────────────────────────────────────┼───────────────────────┼──────────────────────────────────┤
+│"database"   │"relationship"  │["_type","_children"]     │"numberAttribute"  │["_type","_children","schemaPropertyId"]│"distribution"    │["_type","_children"]                   │"type"                 │["_type","_text"]                 │
+├─────────────┼────────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┼──────────────────┼────────────────────────────────────────┼───────────────────────┼──────────────────────────────────┤
+│"database"   │"relationship"  │["_type","_children"]     │"numberAttribute"  │["_type","_children","schemaPropertyId"]│"distribution"    │["_type","_children"]                   │"distributionParameter"│["_type","_children"]             │
+└─────────────┴────────────────┴──────────────────────────┴───────────────────┴────────────────────────────────────────┴──────────────────┴────────────────────────────────────────┴───────────────────────┴──────────────────────────────────┘
+
+
+WITH "file:///moon_base.xml" as file_name
+CALL apoc.load.xml(file_name)
+YIELD value
+UNWIND value._children AS tier1
+WITH tier1, tier1._children AS schema_outline2
+UNWIND schema_outline2 AS tier2
+WITH tier1, tier2, tier2._children AS schema_outline3
+UNWIND schema_outline3 AS tier3
+WITH tier1, tier2, tier3, tier3._children AS schema_outline4
+UNWIND schema_outline4 AS tier4
+WITH tier1, tier2, tier3, tier4, tier4._children AS schema_outline5
+UNWIND schema_outline5 AS tier5
+WITH tier1, tier2, tier3, tier4, tier5, tier5._children AS schema_outline6
+UNWIND schema_outline6 AS tier6
+
+RETURN DISTINCT tier1._type, tier2._type, keys(tier2), tier3._type, keys(tier3), tier4._type, keys(tier4), tier5._type, keys(tier5), tier6._type, keys(tier6)
+
+
+╒═════════════╤══════════════╤══════════════════════════╤═══════════════════╤════════════════════════════════════════╤══════════════════╤══════════════════════════╤═══════════════════════╤══════════════════════════════════╤════════════════════╤══════════════════════════════════╕
+│"tier1._type"│"tier2._type" │"keys(tier2)"             │"tier3._type"      │"keys(tier3)"                           │"tier4._type"     │"keys(tier4)"             │"tier5._type"          │"keys(tier5)"                     │"tier6._type"       │"keys(tier6)"                     │
+╞═════════════╪══════════════╪══════════════════════════╪═══════════════════╪════════════════════════════════════════╪══════════════════╪══════════════════════════╪═══════════════════════╪══════════════════════════════════╪════════════════════╪══════════════════════════════════╡
+│"database"   │"entity"      │["_type","_children","id"]│"simulationData"   │["_type","_children"]                   │"controlStructure"│["_type","_children","id"]│"successorStructure"   │["_type","_children","id"]        │"type"              │["_type","_text"]                 │
+├─────────────┼──────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┼──────────────────┼──────────────────────────┼───────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┤
+│"database"   │"entity"      │["_type","_children","id"]│"durationAttribute"│["_type","_children","schemaPropertyId"]│"distribution"    │["_type","_children"]     │"distributionParameter"│["_type","_children"]             │"name"              │["_type","_text"]                 │
+├─────────────┼──────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┼──────────────────┼──────────────────────────┼───────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┤
+│"database"   │"entity"      │["_type","_children","id"]│"durationAttribute"│["_type","_children","schemaPropertyId"]│"distribution"    │["_type","_children"]     │"distributionParameter"│["_type","_children"]             │"doubleValue"       │["_type","_text"]                 │
+├─────────────┼──────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┼──────────────────┼──────────────────────────┼───────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┤
+│"database"   │"entity"      │["_type","_children","id"]│"simulationData"   │["_type","_children"]                   │"controlStructure"│["_type","_children","id"]│"successorStructure"   │["_type","_children","id"]        │"entityGlobalId"    │["_type","_text"]                 │
+├─────────────┼──────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┼──────────────────┼──────────────────────────┼───────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┤
+│"database"   │"entity"      │["_type","_children","id"]│"simulationData"   │["_type","_children"]                   │"controlStructure"│["_type","_children","id"]│"successorStructure"   │["_type","_children","id"]        │"successorStructure"│["_type","_children","id"]        │
+├─────────────┼──────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┼──────────────────┼──────────────────────────┼───────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┤
+│"database"   │"entity"      │["_type","_children","id"]│"simulationData"   │["_type","_children"]                   │"controlStructure"│["_type","_children","id"]│"successorStructure"   │["_type","_children","id","group"]│"entityGlobalId"    │["_type","_text"]                 │
+├─────────────┼──────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┼──────────────────┼──────────────────────────┼───────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┤
+│"database"   │"entity"      │["_type","_children","id"]│"simulationData"   │["_type","_children"]                   │"controlStructure"│["_type","_children","id"]│"successorStructure"   │["_type","_children","id","group"]│"type"              │["_type","_text"]                 │
+├─────────────┼──────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┼──────────────────┼──────────────────────────┼───────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┤
+│"database"   │"entity"      │["_type","_children","id"]│"simulationData"   │["_type","_children"]                   │"controlStructure"│["_type","_children","id"]│"successorStructure"   │["_type","_children","id","group"]│"xmlBranch"         │["_type","_children","id"]        │
+├─────────────┼──────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┼──────────────────┼──────────────────────────┼───────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┤
+│"database"   │"entity"      │["_type","_children","id"]│"simulationData"   │["_type","_children"]                   │"controlStructure"│["_type","_children","id"]│"successorStructure"   │["_type","_children","id","group"]│"xmlBranch"         │["_type","id"]                    │
+├─────────────┼──────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┼──────────────────┼──────────────────────────┼───────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┤
+│"database"   │"entity"      │["_type","_children","id"]│"simulationData"   │["_type","_children"]                   │"controlStructure"│["_type","_children","id"]│"successorStructure"   │["_type","_children","id","group"]│"successorStructure"│["_type","_children","id"]        │
+├─────────────┼──────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┼──────────────────┼──────────────────────────┼───────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┤
+│"database"   │"entity"      │["_type","_children","id"]│"numberAttribute"  │["_type","_children","schemaPropertyId"]│"distribution"    │["_type","_children"]     │"distributionParameter"│["_type","_children"]             │"name"              │["_type","_text"]                 │
+├─────────────┼──────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┼──────────────────┼──────────────────────────┼───────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┤
+│"database"   │"entity"      │["_type","_children","id"]│"numberAttribute"  │["_type","_children","schemaPropertyId"]│"distribution"    │["_type","_children"]     │"distributionParameter"│["_type","_children"]             │"doubleValue"       │["_type","_text"]                 │
+├─────────────┼──────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┼──────────────────┼──────────────────────────┼───────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┤
+│"database"   │"entity"      │["_type","_children","id"]│"simulationData"   │["_type","_children"]                   │"controlStructure"│["_type","_children","id"]│"successorStructure"   │["_type","_children","id"]        │"successorStructure"│["_type","_children","id","group"]│
+├─────────────┼──────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┼──────────────────┼──────────────────────────┼───────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┤
+│"database"   │"relationship"│["_type","_children"]     │"numberAttribute"  │["_type","_children","schemaPropertyId"]│"distribution"    │["_type","_children"]     │"distributionParameter"│["_type","_children"]             │"name"              │["_type","_text"]                 │
+├─────────────┼──────────────┼──────────────────────────┼───────────────────┼────────────────────────────────────────┼──────────────────┼──────────────────────────┼───────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┤
+│"database"   │"relationship"│["_type","_children"]     │"numberAttribute"  │["_type","_children","schemaPropertyId"]│"distribution"    │["_type","_children"]     │"distributionParameter"│["_type","_children"]             │"doubleValue"       │["_type","_text"]                 │
+└─────────────┴──────────────┴──────────────────────────┴───────────────────┴────────────────────────────────────────┴──────────────────┴──────────────────────────┴───────────────────────┴──────────────────────────────────┴────────────────────┴──────────────────────────────────┘
+
+
+WITH "file:///moon_base.xml" as file_name
+CALL apoc.load.xml(file_name)
+YIELD value
+UNWIND value._children AS tier1
+WITH tier1, tier1._children AS schema_outline2
+UNWIND schema_outline2 AS tier2
+WITH tier1, tier2, tier2._children AS schema_outline3
+UNWIND schema_outline3 AS tier3
+WITH tier1, tier2, tier3, tier3._children AS schema_outline4
+UNWIND schema_outline4 AS tier4
+WITH tier1, tier2, tier3, tier4, tier4._children AS schema_outline5
+UNWIND schema_outline5 AS tier5
+WITH tier1, tier2, tier3, tier4, tier5, tier5._children AS schema_outline6
+UNWIND schema_outline6 AS tier6
+WITH tier1, tier2, tier3, tier4, tier5, tier6, tier6._children AS schema_outline7
+UNWIND schema_outline7 AS tier7
+
+RETURN DISTINCT tier1._type, tier2._type, keys(tier2), tier3._type, keys(tier3), tier4._type, keys(tier4), tier5._type, keys(tier5), tier6._type, keys(tier6), tier7._type, keys(tier7)
+
+╒═════════════╤═════════════╤══════════════════════════╤════════════════╤═════════════════════╤══════════════════╤══════════════════════════╤════════════════════╤══════════════════════════════════╤════════════════════╤══════════════════════════════════╤════════════════════╤══════════════════════════════════╕
+│"tier1._type"│"tier2._type"│"keys(tier2)"             │"tier3._type"   │"keys(tier3)"        │"tier4._type"     │"keys(tier4)"             │"tier5._type"       │"keys(tier5)"                     │"tier6._type"       │"keys(tier6)"                     │"tier7._type"       │"keys(tier7)"                     │
+╞═════════════╪═════════════╪══════════════════════════╪════════════════╪═════════════════════╪══════════════════╪══════════════════════════╪════════════════════╪══════════════════════════════════╪════════════════════╪══════════════════════════════════╪════════════════════╪══════════════════════════════════╡
+│"database"   │"entity"     │["_type","_children","id"]│"simulationData"│["_type","_children"]│"controlStructure"│["_type","_children","id"]│"successorStructure"│["_type","_children","id"]        │"successorStructure"│["_type","_children","id"]        │"entityGlobalId"    │["_type","_text"]                 │
+├─────────────┼─────────────┼──────────────────────────┼────────────────┼─────────────────────┼──────────────────┼──────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┤
+│"database"   │"entity"     │["_type","_children","id"]│"simulationData"│["_type","_children"]│"controlStructure"│["_type","_children","id"]│"successorStructure"│["_type","_children","id"]        │"successorStructure"│["_type","_children","id"]        │"type"              │["_type","_text"]                 │
+├─────────────┼─────────────┼──────────────────────────┼────────────────┼─────────────────────┼──────────────────┼──────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┤
+│"database"   │"entity"     │["_type","_children","id"]│"simulationData"│["_type","_children"]│"controlStructure"│["_type","_children","id"]│"successorStructure"│["_type","_children","id"]        │"successorStructure"│["_type","_children","id"]        │"successorStructure"│["_type","_children","id"]        │
+├─────────────┼─────────────┼──────────────────────────┼────────────────┼─────────────────────┼──────────────────┼──────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┤
+│"database"   │"entity"     │["_type","_children","id"]│"simulationData"│["_type","_children"]│"controlStructure"│["_type","_children","id"]│"successorStructure"│["_type","_children","id","group"]│"xmlBranch"         │["_type","_children","id"]        │"controlStructure"  │["_type","_children","id","group"]│
+├─────────────┼─────────────┼──────────────────────────┼────────────────┼─────────────────────┼──────────────────┼──────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┤
+│"database"   │"entity"     │["_type","_children","id"]│"simulationData"│["_type","_children"]│"controlStructure"│["_type","_children","id"]│"successorStructure"│["_type","_children","id","group"]│"successorStructure"│["_type","_children","id"]        │"type"              │["_type","_text"]                 │
+├─────────────┼─────────────┼──────────────────────────┼────────────────┼─────────────────────┼──────────────────┼──────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┤
+│"database"   │"entity"     │["_type","_children","id"]│"simulationData"│["_type","_children"]│"controlStructure"│["_type","_children","id"]│"successorStructure"│["_type","_children","id","group"]│"xmlBranch"         │["_type","_children","id"]        │"controlStructure"  │["_type","_children","id"]        │
+├─────────────┼─────────────┼──────────────────────────┼────────────────┼─────────────────────┼──────────────────┼──────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┤
+│"database"   │"entity"     │["_type","_children","id"]│"simulationData"│["_type","_children"]│"controlStructure"│["_type","_children","id"]│"successorStructure"│["_type","_children","id"]        │"successorStructure"│["_type","_children","id","group"]│"entityGlobalId"    │["_type","_text"]                 │
+├─────────────┼─────────────┼──────────────────────────┼────────────────┼─────────────────────┼──────────────────┼──────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┤
+│"database"   │"entity"     │["_type","_children","id"]│"simulationData"│["_type","_children"]│"controlStructure"│["_type","_children","id"]│"successorStructure"│["_type","_children","id"]        │"successorStructure"│["_type","_children","id","group"]│"type"              │["_type","_text"]                 │
+├─────────────┼─────────────┼──────────────────────────┼────────────────┼─────────────────────┼──────────────────┼──────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┤
+│"database"   │"entity"     │["_type","_children","id"]│"simulationData"│["_type","_children"]│"controlStructure"│["_type","_children","id"]│"successorStructure"│["_type","_children","id"]        │"successorStructure"│["_type","_children","id","group"]│"xmlBranch"         │["_type","_children","id"]        │
+├─────────────┼─────────────┼──────────────────────────┼────────────────┼─────────────────────┼──────────────────┼──────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┤
+│"database"   │"entity"     │["_type","_children","id"]│"simulationData"│["_type","_children"]│"controlStructure"│["_type","_children","id"]│"successorStructure"│["_type","_children","id"]        │"successorStructure"│["_type","_children","id","group"]│"xmlBranch"         │["_type","id"]                    │
+├─────────────┼─────────────┼──────────────────────────┼────────────────┼─────────────────────┼──────────────────┼──────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┤
+│"database"   │"entity"     │["_type","_children","id"]│"simulationData"│["_type","_children"]│"controlStructure"│["_type","_children","id"]│"successorStructure"│["_type","_children","id"]        │"successorStructure"│["_type","_children","id","group"]│"successorStructure"│["_type","_children","id"]        │
+├─────────────┼─────────────┼──────────────────────────┼────────────────┼─────────────────────┼──────────────────┼──────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┤
+│"database"   │"entity"     │["_type","_children","id"]│"simulationData"│["_type","_children"]│"controlStructure"│["_type","_children","id"]│"successorStructure"│["_type","_children","id","group"]│"successorStructure"│["_type","_children","id"]        │"entityGlobalId"    │["_type","_text"]                 │
+├─────────────┼─────────────┼──────────────────────────┼────────────────┼─────────────────────┼──────────────────┼──────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┤
+│"database"   │"entity"     │["_type","_children","id"]│"simulationData"│["_type","_children"]│"controlStructure"│["_type","_children","id"]│"successorStructure"│["_type","_children","id","group"]│"successorStructure"│["_type","_children","id"]        │"successorStructure"│["_type","_children","id"]        │
+└─────────────┴─────────────┴──────────────────────────┴────────────────┴─────────────────────┴──────────────────┴──────────────────────────┴────────────────────┴──────────────────────────────────┴────────────────────┴──────────────────────────────────┴────────────────────┴──────────────────────────────────┘
+
+
+WITH "file:///moon_base.xml" as file_name
+CALL apoc.load.xml(file_name)
+YIELD value
+UNWIND value._children AS tier1
+WITH tier1, tier1._children AS schema_outline2
+UNWIND schema_outline2 AS tier2
+WITH tier1, tier2, tier2._children AS schema_outline3
+UNWIND schema_outline3 AS tier3
+WITH tier1, tier2, tier3, tier3._children AS schema_outline4
+UNWIND schema_outline4 AS tier4
+WITH tier1, tier2, tier3, tier4, tier4._children AS schema_outline5
+UNWIND schema_outline5 AS tier5
+WITH tier1, tier2, tier3, tier4, tier5, tier5._children AS schema_outline6
+UNWIND schema_outline6 AS tier6
+WITH tier1, tier2, tier3, tier4, tier5, tier6, tier6._children AS schema_outline7
+UNWIND schema_outline7 AS tier7
+WITH tier1, tier2, tier3, tier4, tier5, tier6, tier7, tier7._children AS schema_outline8
+UNWIND schema_outline8 AS tier8
+
+RETURN DISTINCT tier1._type, tier2._type, keys(tier2), tier3._type, keys(tier3), tier4._type, keys(tier4), tier5._type, keys(tier5), tier6._type, keys(tier6), tier7._type, keys(tier7), tier8._type, keys(tier8)
+
+╒═════════════╤═════════════╤══════════════════════════╤════════════════╤═════════════════════╤══════════════════╤══════════════════════════╤════════════════════╤══════════════════════════════════╤════════════════════╤══════════════════════════════════╤════════════════════╤══════════════════════════════════╤════════════════════╤══════════════════════════╕
+│"tier1._type"│"tier2._type"│"keys(tier2)"             │"tier3._type"   │"keys(tier3)"        │"tier4._type"     │"keys(tier4)"             │"tier5._type"       │"keys(tier5)"                     │"tier6._type"       │"keys(tier6)"                     │"tier7._type"       │"keys(tier7)"                     │"tier8._type"       │"keys(tier8)"             │
+╞═════════════╪═════════════╪══════════════════════════╪════════════════╪═════════════════════╪══════════════════╪══════════════════════════╪════════════════════╪══════════════════════════════════╪════════════════════╪══════════════════════════════════╪════════════════════╪══════════════════════════════════╪════════════════════╪══════════════════════════╡
+│"database"   │"entity"     │["_type","_children","id"]│"simulationData"│["_type","_children"]│"controlStructure"│["_type","_children","id"]│"successorStructure"│["_type","_children","id"]        │"successorStructure"│["_type","_children","id"]        │"successorStructure"│["_type","_children","id"]        │"entityGlobalId"    │["_type","_text"]         │
+├─────────────┼─────────────┼──────────────────────────┼────────────────┼─────────────────────┼──────────────────┼──────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────┤
+│"database"   │"entity"     │["_type","_children","id"]│"simulationData"│["_type","_children"]│"controlStructure"│["_type","_children","id"]│"successorStructure"│["_type","_children","id"]        │"successorStructure"│["_type","_children","id"]        │"successorStructure"│["_type","_children","id"]        │"type"              │["_type","_text"]         │
+├─────────────┼─────────────┼──────────────────────────┼────────────────┼─────────────────────┼──────────────────┼──────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────┤
+│"database"   │"entity"     │["_type","_children","id"]│"simulationData"│["_type","_children"]│"controlStructure"│["_type","_children","id"]│"successorStructure"│["_type","_children","id"]        │"successorStructure"│["_type","_children","id"]        │"successorStructure"│["_type","_children","id"]        │"successorStructure"│["_type","_children","id"]│
+├─────────────┼─────────────┼──────────────────────────┼────────────────┼─────────────────────┼──────────────────┼──────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────┤
+│"database"   │"entity"     │["_type","_children","id"]│"simulationData"│["_type","_children"]│"controlStructure"│["_type","_children","id"]│"successorStructure"│["_type","_children","id","group"]│"xmlBranch"         │["_type","_children","id"]        │"controlStructure"  │["_type","_children","id","group"]│"type"              │["_type","_text"]         │
+├─────────────┼─────────────┼──────────────────────────┼────────────────┼─────────────────────┼──────────────────┼──────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────┤
+│"database"   │"entity"     │["_type","_children","id"]│"simulationData"│["_type","_children"]│"controlStructure"│["_type","_children","id"]│"successorStructure"│["_type","_children","id","group"]│"xmlBranch"         │["_type","_children","id"]        │"controlStructure"  │["_type","_children","id","group"]│"xmlBranch"         │["_type","_children","id"]│
+├─────────────┼─────────────┼──────────────────────────┼────────────────┼─────────────────────┼──────────────────┼──────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────┤
+│"database"   │"entity"     │["_type","_children","id"]│"simulationData"│["_type","_children"]│"controlStructure"│["_type","_children","id"]│"successorStructure"│["_type","_children","id","group"]│"xmlBranch"         │["_type","_children","id"]        │"controlStructure"  │["_type","_children","id","group"]│"successorStructure"│["_type","_children","id"]│
+├─────────────┼─────────────┼──────────────────────────┼────────────────┼─────────────────────┼──────────────────┼──────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────┤
+│"database"   │"entity"     │["_type","_children","id"]│"simulationData"│["_type","_children"]│"controlStructure"│["_type","_children","id"]│"successorStructure"│["_type","_children","id","group"]│"xmlBranch"         │["_type","_children","id"]        │"controlStructure"  │["_type","_children","id"]        │"entityGlobalId"    │["_type","_text"]         │
+├─────────────┼─────────────┼──────────────────────────┼────────────────┼─────────────────────┼──────────────────┼──────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────┤
+│"database"   │"entity"     │["_type","_children","id"]│"simulationData"│["_type","_children"]│"controlStructure"│["_type","_children","id"]│"successorStructure"│["_type","_children","id","group"]│"xmlBranch"         │["_type","_children","id"]        │"controlStructure"  │["_type","_children","id"]        │"type"              │["_type","_text"]         │
+├─────────────┼─────────────┼──────────────────────────┼────────────────┼─────────────────────┼──────────────────┼──────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────┤
+│"database"   │"entity"     │["_type","_children","id"]│"simulationData"│["_type","_children"]│"controlStructure"│["_type","_children","id"]│"successorStructure"│["_type","_children","id"]        │"successorStructure"│["_type","_children","id","group"]│"xmlBranch"         │["_type","_children","id"]        │"controlStructure"  │["_type","_children","id"]│
+├─────────────┼─────────────┼──────────────────────────┼────────────────┼─────────────────────┼──────────────────┼──────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────┤
+│"database"   │"entity"     │["_type","_children","id"]│"simulationData"│["_type","_children"]│"controlStructure"│["_type","_children","id"]│"successorStructure"│["_type","_children","id"]        │"successorStructure"│["_type","_children","id","group"]│"successorStructure"│["_type","_children","id"]        │"entityGlobalId"    │["_type","_text"]         │
+├─────────────┼─────────────┼──────────────────────────┼────────────────┼─────────────────────┼──────────────────┼──────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────┤
+│"database"   │"entity"     │["_type","_children","id"]│"simulationData"│["_type","_children"]│"controlStructure"│["_type","_children","id"]│"successorStructure"│["_type","_children","id"]        │"successorStructure"│["_type","_children","id","group"]│"successorStructure"│["_type","_children","id"]        │"type"              │["_type","_text"]         │
+├─────────────┼─────────────┼──────────────────────────┼────────────────┼─────────────────────┼──────────────────┼──────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────┤
+│"database"   │"entity"     │["_type","_children","id"]│"simulationData"│["_type","_children"]│"controlStructure"│["_type","_children","id"]│"successorStructure"│["_type","_children","id"]        │"successorStructure"│["_type","_children","id","group"]│"successorStructure"│["_type","_children","id"]        │"successorStructure"│["_type","_children","id"]│
+├─────────────┼─────────────┼──────────────────────────┼────────────────┼─────────────────────┼──────────────────┼──────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────┤
+│"database"   │"entity"     │["_type","_children","id"]│"simulationData"│["_type","_children"]│"controlStructure"│["_type","_children","id"]│"successorStructure"│["_type","_children","id","group"]│"xmlBranch"         │["_type","_children","id"]        │"controlStructure"  │["_type","_children","id","group"]│"branchAsset"       │["_type","_children"]     │
+├─────────────┼─────────────┼──────────────────────────┼────────────────┼─────────────────────┼──────────────────┼──────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────────────┼────────────────────┼──────────────────────────┤
+│"database"   │"entity"     │["_type","_children","id"]│"simulationData"│["_type","_children"]│"controlStructure"│["_type","_children","id"]│"successorStructure"│["_type","_children","id","group"]│"successorStructure"│["_type","_children","id"]        │"successorStructure"│["_type","_children","id"]        │"type"              │["_type","_text"]         │
+└─────────────┴─────────────┴──────────────────────────┴────────────────┴─────────────────────┴──────────────────┴──────────────────────────┴────────────────────┴──────────────────────────────────┴────────────────────┴──────────────────────────────────┴────────────────────┴──────────────────────────────────┴────────────────────┴──────────────────────────┘
